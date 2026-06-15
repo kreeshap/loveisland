@@ -11,8 +11,16 @@ app = FastAPI()
 # Gemini exposes an OpenAI-compatible endpoint, so we can keep using the
 # `openai` Python library — just point it at Google's base_url and use
 # the GEMINI_API_KEY environment variable (set this in Render's dashboard).
+#
+# IMPORTANT: if GEMINI_API_KEY isn't set, the `openai` library raises at
+# construction time, which would crash the whole app on boot (and take down
+# the frontend too). So if it's missing, we use a placeholder key — the app
+# will start fine, and /generate will return a clear error instead of the
+# whole server failing to deploy.
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY")
+
 client = OpenAI(
-    api_key=os.environ.get("GEMINI_API_KEY"),
+    api_key=GEMINI_API_KEY or "missing-key",
     base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
 )
 
@@ -39,6 +47,15 @@ def clamp(x: float) -> float:
 @app.get("/")
 def home():
     return FileResponse("index.html")
+
+
+@app.get("/health")
+def health():
+    return {
+        "status": "ok",
+        "gemini_api_key_set": bool(GEMINI_API_KEY),
+        "model": MODEL,
+    }
 
 
 # ----------------------------------------------------------------------
@@ -491,6 +508,16 @@ def run_script_writer(outcomes: list[dict], events: list[dict], scenes_data: dic
 @app.get("/generate")
 def generate(debug: bool = False):
     global episode_number
+
+    if not GEMINI_API_KEY:
+        return {
+            "episode": (
+                "⚠️ Server is missing GEMINI_API_KEY. On Render, go to your "
+                "service → Environment, add a variable with Key "
+                "`GEMINI_API_KEY` and Value = your Gemini API key, then "
+                "redeploy."
+            )
+        }
 
     if not submissions:
         return {"episode": "No submissions yet — add some inputs first!"}
