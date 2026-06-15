@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Love Island Episode Generator</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      max-width: 700px;
+      margin: 40px auto;
+      padding: 0 20px;
+      background: #fdf6f9;
+      color: #2b2b2b;
+    }
+    h1 {
+      color: #e0457b;
+    }
+    form, .actions {
+      background: white;
+      border-radius: 10px;
+      padding: 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 20px;
+    }
+    input, textarea {
+      width: 100%;
+      padding: 10px;
+      margin-bottom: 10px;
+      border: 1px solid #ddd;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    textarea {
+      min-height: 80px;
+      resize: vertical;
+    }
+    button {
+      background: #e0457b;
+      color: white;
+      border: none;
+      padding: 10px 18px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 14px;
+      font-weight: 600;
+    }
+    button:hover {
+      background: #c8345f;
+    }
+    #generate {
+      background: #4a4ae0;
+    }
+    #generate:hover {
+      background: #3838c0;
+    }
+    #status {
+      font-size: 13px;
+      color: #888;
+      margin-top: 8px;
+    }
+    pre {
+      white-space: pre-wrap;
+      word-wrap: break-word;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      line-height: 1.5;
+      min-height: 100px;
+    }
+    .submission-count {
+      font-size: 13px;
+      color: #666;
+    }
+    label.debug {
+      font-size: 13px;
+      color: #666;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      margin-left: 12px;
+    }
+    details {
+      background: white;
+      border-radius: 10px;
+      padding: 14px 20px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+      margin-bottom: 20px;
+    }
+    details pre {
+      box-shadow: none;
+      padding: 10px;
+      margin: 10px 0 0 0;
+      font-size: 12px;
+      background: #f7f7f9;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>🌴 Love Island Episode Generator</h1>
+
+  <form id="form">
+    <input name="user" placeholder="Your name (optional)" />
+    <textarea name="input" placeholder="Who do you like? What did you do?" required></textarea>
+    <button type="submit">Submit</button>
+    <div id="status"></div>
+  </form>
+
+  <div class="actions">
+    <button id="generate">🎬 Generate Episode</button>
+    <label class="debug">
+      <input type="checkbox" id="debugToggle" />
+      Show writers' room pipeline (debug)
+    </label>
+    <p class="submission-count" id="count">0 submissions so far</p>
+  </div>
+
+  <pre id="output">Episode output will appear here...</pre>
+
+  <details id="debugBox" style="display:none;">
+    <summary>Pipeline output: outcomes → events → scenes → emotional snapshots → characters</summary>
+    <pre id="debugOutput"></pre>
+  </details>
+
+  <script>
+    // Relative URLs so this works whether served locally or deployed
+    let submissionCount = 0;
+
+    document.getElementById("form").onsubmit = async (e) => {
+      e.preventDefault();
+      const data = Object.fromEntries(new FormData(e.target));
+      const statusEl = document.getElementById("status");
+
+      try {
+        const res = await fetch("/submit", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+
+        if (!res.ok) throw new Error("Request failed");
+
+        submissionCount++;
+        document.getElementById("count").innerText = `${submissionCount} submission(s) so far`;
+        statusEl.innerText = "✅ Submitted!";
+        e.target.reset();
+      } catch (err) {
+        statusEl.innerText = "❌ Couldn't submit. Is the server running?";
+        console.error(err);
+      }
+    };
+
+    document.getElementById("generate").onclick = async () => {
+      const output = document.getElementById("output");
+      const debugBox = document.getElementById("debugBox");
+      const debugOutput = document.getElementById("debugOutput");
+      const debug = document.getElementById("debugToggle").checked;
+
+      output.innerText = "Generating episode... 🎥";
+      debugBox.style.display = "none";
+
+      try {
+        const res = await fetch(`/generate${debug ? "?debug=true" : ""}`);
+        if (!res.ok) throw new Error("Request failed");
+        const data = await res.json();
+        output.innerText = data.episode;
+
+        if (debug) {
+          debugOutput.innerText = JSON.stringify(
+            {
+              episode_number: data.episode_number,
+              public_opinion: data.public_opinion,
+              outcomes: data.outcomes,
+              events: data.events,
+              scenes: data.scenes,
+              scene_snapshots: data.scene_snapshots,
+              characters: data.characters
+            },
+            null,
+            2
+          );
+          debugBox.style.display = "block";
+        }
+
+        // New episode = new round of secrets, so reset the submission counter
+        submissionCount = 0;
+        document.getElementById("count").innerText = "0 submissions so far";
+      } catch (err) {
+        output.innerText = "❌ Couldn't generate episode. Is the server running?";
+        console.error(err);
+      }
+    };
+  </script>
+
+</body>
+</html>
