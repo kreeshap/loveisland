@@ -100,7 +100,7 @@
 </head>
 <body>
 
-  <h1>LOVE ISLANDDDD</h1>
+  <h1>🌴 Love Island Episode Generator</h1>
 
   <form id="form">
     <input name="user" placeholder="Your name (optional)" />
@@ -110,7 +110,7 @@
   </form>
 
   <div class="actions">
-    <button id="generate">Generate Episode</button>
+    <button id="generate">🎬 Generate Episode</button>
     <label class="debug">
       <input type="checkbox" id="debugToggle" />
       Show writers' room pipeline (debug)
@@ -126,8 +126,25 @@
   </details>
 
   <script>
-    // Relative URLs so this works whether served locally or deployed
-    let submissionCount = 0;
+    // Fetch the absolute total count directly from Render's server memory
+    async function updateRealSubmissionCount() {
+      try {
+        const res = await fetch("/submissions");
+        if (!res.ok) throw new Error("Failed to fetch submissions");
+        const data = await res.json();
+        
+        // Update the display text using the real server list length
+        document.getElementById("count").innerText = `${data.total} submission(s) so far`;
+      } catch (err) {
+        console.error("Error pulling submission count:", err);
+      }
+    }
+
+    // Call immediately on page load so you don't start at a fake "0"
+    updateRealSubmissionCount();
+
+    // Poll the server every 5 seconds so your friend's entries show up live on your device
+    setInterval(updateRealSubmissionCount, 5000);
 
     document.getElementById("form").onsubmit = async (e) => {
       e.preventDefault();
@@ -143,10 +160,11 @@
 
         if (!res.ok) throw new Error("Request failed");
 
-        submissionCount++;
-        document.getElementById("count").innerText = `${submissionCount} submission(s) so far`;
         statusEl.innerText = "✅ Submitted!";
         e.target.reset();
+        
+        // Instantly get the accurate count back from the server
+        await updateRealSubmissionCount();
       } catch (err) {
         statusEl.innerText = "❌ Couldn't submit. Is the server running?";
         console.error(err);
@@ -185,9 +203,8 @@
           debugBox.style.display = "block";
         }
 
-        // New episode = new round of secrets, so reset the submission counter
-        submissionCount = 0;
-        document.getElementById("count").innerText = "0 submissions so far";
+        // Ask the server for the new count (which backend clears to 0 upon generation)
+        await updateRealSubmissionCount();
       } catch (err) {
         output.innerText = "❌ Couldn't generate episode. Is the server running?";
         console.error(err);
