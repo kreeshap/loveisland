@@ -1,4 +1,5 @@
 import json
+import os
 
 from fastapi import FastAPI
 from fastapi.responses import FileResponse
@@ -6,7 +7,16 @@ from pydantic import BaseModel
 from openai import OpenAI
 
 app = FastAPI()
-client = OpenAI()
+
+# Gemini exposes an OpenAI-compatible endpoint, so we can keep using the
+# `openai` Python library — just point it at Google's base_url and use
+# the GEMINI_API_KEY environment variable (set this in Render's dashboard).
+client = OpenAI(
+    api_key=os.environ.get("GEMINI_API_KEY"),
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+)
+
+MODEL = "gemini-2.5-flash"
 
 # ----------------------------------------------------------------------
 # In-memory "database" — resets when the server restarts
@@ -81,7 +91,7 @@ def call_llm_json(system_prompt: str, user_prompt: str, required_keys: list[str]
 
     for attempt in range(2):
         response = client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=MODEL,
             temperature=temperature,
             response_format={"type": "json_object"},
             messages=messages,
@@ -465,7 +475,7 @@ def run_script_writer(outcomes: list[dict], events: list[dict], scenes_data: dic
     prompt = SCRIPT_WRITER_SYSTEM.format(blueprint=json.dumps(blueprint, indent=2))
 
     response = client.chat.completions.create(
-        model="gpt-4o-mini",
+        model=MODEL,
         temperature=0.9,
         messages=[
             {"role": "system", "content": "You are a reality TV writer."},
